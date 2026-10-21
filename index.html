@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f2f6fa">
+<title>Drone PID Coding Simulator</title>
+<style>
+:root { --ink:#192b3b; --muted:#61758a; --line:#d7e2ec; --blue:#147ba9; --blue-dark:#0d5c85; --bg:#f1f5f9; --green:#278568; --warn:#b44f43; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+button,input,select,textarea { font:inherit; }
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible { outline:3px solid #81bfdf; outline-offset:2px; }
+.page { width:min(1660px,calc(100% - 30px)); margin:0 auto; padding:12px 0 20px; }
+header { display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:12px; margin-bottom:11px; }
+h1 { margin:0; font-size:22px; line-height:1.25; letter-spacing:-.03em; }
+.subtitle { margin:3px 0 0; color:var(--muted); font-size:12px; }
+h2 { font-size:15px; letter-spacing:-.01em; margin:0; }
+h3 { font-size:12px; text-transform:uppercase; letter-spacing:.045em; color:#52687d; margin:0; }
+.status { background:#e8eef5; color:#4b6071; font-size:12px; font-weight:650; padding:7px 11px; border-radius:9px; max-width:610px; }
+.status.running { background:#dff3e9; color:#176b51; }
+.status.error { background:#fff0eb; color:#9d4037; }
+.status.ready { background:#e5f1f9; color:#12597e; }
+.card { background:#fff; border:1px solid var(--line); border-radius:13px; box-shadow:0 5px 22px rgba(32,54,78,.035); min-width:0; }
+.topbar { display:grid; grid-template-columns:minmax(300px,1.2fr) auto auto; align-items:end; gap:12px 18px; padding:12px 15px; margin-bottom:12px; }
+.setpoint-top { display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-weight:750; }
+.setpoint-number { font-size:24px; color:var(--blue-dark); font-variant-numeric:tabular-nums; }
+.setpoint-scale { display:flex; justify-content:space-between; font-size:10px; color:#9aa8b5; }
+input[type=range] { width:100%; accent-color:var(--blue); cursor:pointer; }
+.slider-help { font-size:11px; color:var(--muted); }
+.action-group { display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+button { border:1px solid #ccdae5; color:#344f63; background:#fff; border-radius:8px; padding:7px 11px; min-height:34px; font-size:12px; font-weight:720; cursor:pointer; }
+button:hover:not(:disabled) { background:#edf4f9; }
+button.primary { color:white; border-color:var(--blue); background:var(--blue); }
+button.primary:hover:not(:disabled) { background:var(--blue-dark); }
+button:disabled { opacity:.42; cursor:not-allowed; }
+.speed-wrap { display:flex; align-items:center; gap:7px; white-space:nowrap; color:var(--muted); font-size:12px; }
+select { background:white; border:1px solid #ccdae5; border-radius:8px; height:35px; padding:0 6px; color:var(--ink); }
+.workspace { display:grid; grid-template-columns:minmax(380px,1.10fr) minmax(420px,1.26fr) minmax(225px,.55fr); gap:12px; align-items:stretch; }
+.code-card { display:flex; flex-direction:column; padding:12px; gap:9px; }
+.code-heading { display:flex; align-items:start; justify-content:space-between; gap:8px; }
+.code-intro { color:var(--muted); font-size:11px; margin:4px 0 0; }
+.code-section { display:flex; flex-direction:column; min-height:0; }
+.code-meta { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:5px; }
+.code-meta small { color:#8496a8; font-size:10px; }
+textarea.code { display:block; width:100%; resize:vertical; min-height:92px; background:#152437; color:#deecf6; border:1px solid #263b52; border-radius:8px; outline-offset:2px; padding:10px 11px; tab-size:4; white-space:pre; overflow:auto; line-height:1.45; font:12px/1.47 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace; }
+#python-code { height:100%; min-height:0; resize:none; padding-left:60px; font:12px/18px ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace; }
+.editor-shell { position:relative; height:530px; min-height:320px; }
+.line-gutter { position:absolute; z-index:1; left:1px; top:1px; bottom:1px; width:49px; background:#101d2c; border-right:1px solid #35475b; color:#899cae; border-radius:8px 0 0 8px; overflow:hidden; pointer-events:none; font:12px/18px ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace; text-align:right; }
+.gutter-lines { padding:10px 0; will-change:transform; }
+.line-number { height:18px; line-height:18px; padding:0 9px 0 3px; display:block; font-variant-numeric:tabular-nums; }
+.line-number.error-line { color:#ffe6dd; background:#a43d31; font-weight:bold; }
+.code-error { white-space:normal; }
+.code-error-title { font-weight:800; margin-bottom:3px; }
+.code-error-msg { font-size:12px; }
+.code-error-source { white-space:pre-wrap; overflow-wrap:anywhere; color:#7c3730; background:#fffbfa; border:1px solid #f0d8d3; border-radius:5px; font:12px/1.45 ui-monospace,Consolas,monospace; padding:7px; margin:7px 0 0; }
+.code-error-hint { font-size:11px; color:#7a5049; margin-top:6px; }
+.jump-error { margin-top:8px; min-height:28px; font-size:11px; padding:4px 8px; border-color:#dfaaa3; color:#90362e; }
+
+.code-error { padding:9px 10px; border:1px solid #e8b5af; border-radius:8px; background:#fff3ef; color:#a43d31; white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+.code-error[hidden] { display:none; }
+.stop-button { border-color:#d9b0ac; color:#a33f39; background:#fff8f6; font-weight:800; }
+.stop-button:hover:not(:disabled) { background:#fce7e3; }
+.editor-buttons { display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:5px; }
+.chart-card { padding:12px; display:flex; flex-direction:column; }
+.chart-header { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:center; }
+.chart-label { display:block; color:var(--muted); font-size:11px; }
+.chart-stage { margin-top:10px; height:440px; flex:1; position:relative; min-height:300px; }
+#response-chart { display:block; width:100%; height:100%; cursor:crosshair; }
+.hover-tip { position:absolute; pointer-events:none; padding:8px; border-radius:8px; background:#fff; border:1px solid var(--line); box-shadow:0 6px 18px #20354a2a; font-size:11px; line-height:1.5; color:#334b5d; z-index:3; min-width:160px; }
+.hover-tip[hidden] { display:none; }
+.legend { display:flex; flex-wrap:wrap; gap:6px 13px; padding-top:9px; margin-top:5px; border-top:1px solid #ebf0f5; font-size:11px; color:#536778; }
+.legend span { white-space:nowrap; }
+.legend i { width:21px; display:inline-block; border-top:3px solid; vertical-align:middle; margin-right:5px; }
+.scrub-panel { padding-top:15px; margin-top:auto; }
+.scrub-row { display:flex; justify-content:space-between; gap:8px; font-size:11px; font-weight:700; color:#546a7a; }
+#scrub { margin-top:4px; }
+.scrub-labels { display:flex; justify-content:space-between; font-size:10px; color:#889aaa; }
+.csv-note { display:flex; align-items:center; gap:7px; margin-top:9px; font-size:11px; color:#7b8fa2; }
+.drone-card { padding:12px; display:flex; flex-direction:column; gap:9px; }
+.sky { border:1px solid #cfe1ed; border-radius:10px; overflow:hidden; background:linear-gradient(#dbedf8,#f3fafe); height:388px; }
+.sky svg { width:100%; height:100%; display:block; }
+.readouts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+.readout { border:1px solid #e9eef4; border-radius:8px; padding:7px 8px; min-width:0; }
+.readout .label { font-size:10px; color:var(--muted); }
+.readout strong { display:block; font-size:16px; font-variant-numeric:tabular-nums; overflow:hidden; text-overflow:ellipsis; }
+.readout small { font-weight:450; color:#77899b; font-size:10px; }
+.guide { padding:12px 15px; margin-top:12px; }
+.guide-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+.guide p { font-size:12px; margin:6px 0 0; color:#566a7e; }
+.guide code { background:#f1f5f8; border-radius:4px; padding:1px 3px; color:#26516f; }
+footer { font-size:11px; color:#7c8c9c; margin-top:10px; }
+@media (max-width:1400px) { .workspace { grid-template-columns:minmax(380px,1.04fr) minmax(400px,1.2fr); } .drone-card { grid-column:1/-1; display:grid; grid-template-columns:240px minmax(0,1fr); grid-template-rows:auto 1fr; align-content:start; gap:9px 14px; } .drone-card h2 { grid-column:1/-1; } .sky { height:315px; } .readouts { align-self:start; grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media (max-width:920px) { .topbar { grid-template-columns:1fr; } .action-group { justify-content:flex-start; } .workspace { grid-template-columns:1fr; } .drone-card { grid-column:auto; grid-template-columns:1fr 1fr; } .drone-card h2 { grid-column:1/-1; } .readouts { grid-template-columns:repeat(2,minmax(0,1fr)); } .chart-stage { height:330px; } .guide-grid { grid-template-columns:1fr; } }
+@media (max-width:600px) { .page { width:calc(100% - 18px); } .drone-card { display:flex; } .sky { height:320px; } h1 { font-size:19px; } .chart-stage { height:285px; } .editor-shell { height:410px; } }
+@media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+  <div>
+    <h1>Drone PID Coding Simulator </h1>
+  </div>
+  <span class="status" id="status" role="status" aria-live="polite">Loading Python runtime… (requires internet on first load)</span>
+</header>
+<section class="card topbar" aria-label="Simulation controls">
+  <div>
+    <div class="setpoint-top"><label for="setpoint">Desired altitude (setpoint)</label><output class="setpoint-number" id="setpoint-display">10.0 ft</output></div>
+    <input id="setpoint" type="range" min="0" max="15" step="0.5" value="10" aria-label="Desired altitude slider">
+    <div class="setpoint-scale"><span>0 ft</span><span>5 ft</span><span>10 ft</span><span>15 ft</span></div>
+    <div class="slider-help">Change this slider while running to test setpoint tracking. Scroll over it to adjust by 0.5 ft.</div>
+  </div>
+  <div class="speed-wrap"><label for="speed">Playback</label><select id="speed"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option></select></div>
+  <div class="action-group">
+    <button id="pause" disabled type="button">Pause</button>
+    <button id="stop" class="stop-button" disabled type="button">STOP</button>
+    <button id="clear" type="button">Clear trials</button>
+    <button class="primary" id="start" disabled type="button">Start new run</button>
+  </div>
+</section>
+<main class="workspace">
+  <section class="card code-card" aria-label="Python programming area">
+    <div class="code-heading"><div><h2><span style="color:#197cab">●</span> Pico-style Python editor</h2><div class="code-intro">One complete Python program. Setup runs once; <code>while True:</code> runs until you press STOP.</div></div></div>
+    <div class="code-section">
+      <div class="code-meta"><h3>Python program</h3><small>Use Tab to indent · Code changes apply on a new run</small></div>
+      <div class="editor-shell"><div class="line-gutter" aria-hidden="true"><div id="gutter-lines" class="gutter-lines"></div></div><textarea id="python-code" class="code" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Complete Python program with line numbers"></textarea></div>
+    </div>
+    <div class="code-error" id="code-error" role="alert" hidden></div>
+    <div class="editor-buttons">
+      <button id="reset-code" type="button" title="Replace this Python program with its original template">Reset code</button>
+      <button id="download-python" type="button">Save code as .py</button>
+      <button id="download-csv" disabled type="button">Export trial CSV</button>
+    </div>
+  </section>
+  <section class="card chart-card" aria-label="Altitude response chart">
+    <div class="chart-header"><div><h2>Altitude response</h2><span class="chart-label">Dashed = setpoint · Solid = measured altitude</span><span class="chart-label" id="visible-time">Viewing 0.0–30.0 s (30-second scrolling window)</span></div><button id="save-chart" type="button" disabled>Save chart PNG</button></div>
+    <div class="chart-stage"><canvas id="response-chart" role="img" aria-label="Altitude versus time, comparing simulated runs. Move pointer over a trace to inspect its value."></canvas><div class="hover-tip" id="hover-tip" hidden></div></div>
+    <div class="legend" id="legend"><span>Run a simulation to compare traces.</span></div>
+    <div class="scrub-panel">
+      <div class="scrub-row"><label for="scrub">Scrub simulated time</label><output id="scrub-value">0.00 s</output></div>
+      <input id="scrub" type="range" min="0" max="0" step="any" value="0" disabled>
+      <div class="scrub-labels"><span>0 s</span><span id="last-scrub-label">0 s</span></div>
+      <div class="csv-note" id="scrub-help">Select STOP to examine the latest trace.</div>
+    </div>
+  </section>
+  <section class="card drone-card" aria-label="Drone visualization and controller readings">
+    <h2>Live drone view</h2>
+    <div class="sky">
+      <svg viewBox="0 0 285 415" role="img" aria-label="Drone position on 0 to 15 foot ruler with adjustable target line">
+        <defs><linearGradient id="grass" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#83bd7c"/><stop offset="1" stop-color="#4d915d"/></linearGradient><filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".18"/></filter></defs>
+        <g stroke="#bcd1dd" stroke-dasharray="3 5" stroke-width="1"><line x1="37" y1="36" x2="280" y2="36"/><line x1="37" y1="146" x2="280" y2="146"/><line x1="37" y1="256" x2="280" y2="256"/><line x1="37" y1="366" x2="280" y2="366"/></g>
+        <g font-size="12" font-family="system-ui,sans-serif" fill="#5c7990"><text x="3" y="40">15</text><text x="3" y="150">10</text><text x="10" y="260">5</text><text x="10" y="370">0</text><text x="9" y="391" font-size="10">ft</text></g>
+        <g id="target-line"><line x1="37" x2="278" y1="146" y2="146" stroke="#aa6b68" stroke-width="2" stroke-dasharray="7 5"/></g><rect x="159" y="5" width="118" height="20" rx="5" fill="#fdf4ef" opacity=".94"/><text x="218" y="19" text-anchor="middle" font-size="11" font-weight="700" fill="#9b5b55" id="target-label">Target 10 ft</text>
+        <rect x="0" y="370" width="285" height="45" fill="url(#grass)"/><line x1="0" y1="370" x2="285" y2="370" stroke="#5c9969" stroke-width="2"/>
+        <g id="drone" transform="translate(148 366)" filter="url(#shadow)">
+          <path d="M-31 -13V-20 M31 -13V-20 M-40 -21H-22 M22 -21H40" stroke="#58636c" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="0" cy="-17" r="7" fill="#374451" stroke="#253444" stroke-width="1"/>
+          <rect x="-44" y="-12" width="88" height="16" rx="8" fill="#a7b1b9" stroke="#596b79" stroke-width="2"/>
+          <rect x="-47" y="-6" width="7" height="4" rx="2" fill="#6e7880"/><rect x="40" y="-6" width="7" height="4" rx="2" fill="#6e7880"/>
+          <line x1="0" y1="3" x2="0" y2="10" stroke="#596b79" stroke-width="3"/>
+          <path d="M-10 10Q0 20 10 10Z" fill="#ba3535" stroke="#7b2020" stroke-width="2"/>
+        </g>
+      </svg>
+    </div>
+    <div class="readouts">
+      <div class="readout"><div class="label">Current altitude</div><strong id="alt-value">0.00 <small>ft</small></strong></div>
+      <div class="readout"><div class="label">Simulation time</div><strong id="time-value">0.00 <small>s</small></strong></div>
+      <div class="readout"><div class="label">Error (r − y)</div><strong id="error-value">—</strong></div>
+      <div class="readout"><div class="label">Python motor_command</div><strong id="output-value">—</strong></div>
+      <div class="readout"><div class="label">Vertical speed</div><strong id="velocity-value">—</strong></div>
+      <div class="readout"><div class="label">P contribution</div><strong id="p-value">—</strong></div>
+      <div class="readout"><div class="label">I contribution</div><strong id="i-value">—</strong></div>
+      <div class="readout"><div class="label">D contribution</div><strong id="d-value">—</strong></div>
+    </div>
+  </section>
+</main>
+</div>
+<script id="python-engine" type="text/plain">"""Pico-style PID classroom lab: real Python code, simplified drone physics.
+
+Setup executes once; one iteration of a top-level while True loop executes
+per simulated control sample. The browser can pause, stop, and change target.
+"""
+import ast
+import json
+import math
+import traceback
+
+# Physics (feet, seconds, percentage of maximum rotor RPM):
+# Thrust is proportional to RPM squared; hover needs ~52% actual rotor speed.
+# The student code begins with an estimated hover_command = 50%.
+G_FT = 32.174
+TRUE_HOVER_RPM = 52.0
+MOTOR_TIME_CONSTANT = 0.1
+VERTICAL_DRAG = 1.15
+MAX_RPM_PERCENT = 100.0
+INTEGRATION_STEP = 0.01
+DEFAULT_DT = 0.03
+# MicroPython ticks_diff() handles wrap-around of a fixed-width tick counter.
+# 2**30 microseconds is ~17.9 simulated minutes.
+CLOCK_PERIOD_US = 1 << 30
+VIRTUAL_CLOCK_US = 0
+MIN_DT = 0.005
+MAX_DT = 1.0
+MAX_STEPS_PER_REQUEST = 100
+SOURCE_NAME = 'PID program'
+
+ALLOWED_AST = (
+    ast.Module, ast.ImportFrom, ast.alias, ast.While,
+    ast.Assign, ast.AugAssign, ast.If, ast.IfExp, ast.Expr, ast.Pass,
+    ast.Name, ast.Load, ast.Store, ast.Constant, ast.BinOp, ast.UnaryOp,
+    ast.BoolOp, ast.Compare, ast.Call, ast.keyword,
+    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.FloorDiv, ast.Pow,
+    ast.UAdd, ast.USub, ast.Not, ast.And, ast.Or,
+    ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+)
+ALLOWED_CALLS = {'abs', 'min', 'max', 'round', 'float', 'int', 'sleep', 'ticks_us', 'ticks_diff', 'print'}
+ALLOWED_BI = {k: v for k, v in (
+    ('abs', abs), ('min', min), ('max', max),
+    ('round', round), ('float', float), ('int', int))}
+ACTIVE = None
+
+
+def quiet_print(*values, **kwargs):
+    # print is accepted for code portability; this lab intentionally has no Shell.
+    return None
+
+
+def virtual_sleep(seconds):
+    if ACTIVE is None:
+        raise RuntimeError('Call sleep() inside while True, not in setup')
+    dt = float(seconds)
+    if not math.isfinite(dt) or dt < MIN_DT or dt > MAX_DT:
+        raise ValueError('sleep() must be between 0.005 and 1.0 seconds')
+    if ACTIVE['slept']:
+        raise ValueError('Call sleep() only once per while True iteration')
+    ACTIVE['slept'] = True
+    ACTIVE['next_dt'] = dt
+
+
+def virtual_ticks_us():
+    # A Pico-like microsecond counter; no dependency on browser playback speed.
+    return VIRTUAL_CLOCK_US
+
+
+def virtual_ticks_diff(newer, older):
+    # Mirror MicroPython's signed modular difference, including timer wrap.
+    if not isinstance(newer, int) or not isinstance(older, int):
+        raise TypeError('ticks_diff() needs two integer values from ticks_us()')
+    half = CLOCK_PERIOD_US // 2
+    return ((newer - older + half) % CLOCK_PERIOD_US) - half
+
+
+def raise_syntax(message, node, source):
+    lines = source.splitlines()
+    line = getattr(node, 'lineno', 1)
+    col = getattr(node, 'col_offset', 0) + 1
+    original = lines[line - 1] if 0 < line <= len(lines) else ''
+    raise SyntaxError(message, (SOURCE_NAME, line, col, original))
+
+
+def compile_program(source):
+    if len(source) > 18000 or source.count('\n') > 250:
+        raise ValueError('The Python program is too long for this exercise')
+    tree = ast.parse(source, filename=SOURCE_NAME, mode='exec')
+    if len(list(ast.walk(tree))) > 1200:
+        raise ValueError('Too many Python expressions in this exercise')
+    if not tree.body:
+        raise SyntaxError('Add setup variables and a while True: loop')
+    loops = [node for node in tree.body if isinstance(node, ast.While)]
+    if len(loops) != 1 or tree.body[-1] is not loops[0]:
+        raise_syntax('Place one while True: loop at the end of your program', tree.body[-1], source)
+    loop = loops[0]
+    if not isinstance(loop.test, ast.Constant) or loop.test.value is not True:
+        raise_syntax('The final loop must say while True:', loop, source)
+    if loop.orelse:
+        raise_syntax('while/else is not supported in this lab', loop, source)
+    for node in ast.walk(tree):
+        if not isinstance(node, ALLOWED_AST):
+            raise_syntax(type(node).__name__ + ' is not supported in this classroom lab', node, source)
+        if isinstance(node, ast.While) and node is not loop:
+            raise_syntax('Nested loops are not supported in this lab', node, source)
+        if isinstance(node, ast.ImportFrom):
+            names = [part.name for part in node.names]
+            if (node not in tree.body or node.module != 'time'
+                or any(part.name not in {'sleep', 'ticks_us', 'ticks_diff'} or part.asname
+                       for part in node.names)
+                or len(set(names)) != len(names)):
+                raise_syntax('Use from time import sleep, ticks_us, ticks_diff', node, source)
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name) or node.func.id not in ALLOWED_CALLS:
+                raise_syntax('Use arithmetic, variables, and the permitted simple functions', node, source)
+        if isinstance(node, ast.Assign) and any(not isinstance(t, ast.Name) for t in node.targets):
+            raise_syntax('Assign to simple variables only', node, source)
+        if isinstance(node, ast.AugAssign) and not isinstance(node.target, ast.Name):
+            raise_syntax('Assign to simple variables only', node, source)
+        if isinstance(node, ast.Name) and node.id.startswith('__'):
+            raise_syntax('This name is reserved by Python', node, source)
+        if isinstance(node, ast.Constant) and not isinstance(node.value, (str, int, float, bool, type(None))):
+            raise_syntax('Unsupported Python literal', node, source)
+    setup_nodes = [n for n in tree.body[:-1] if not isinstance(n, ast.ImportFrom)]
+    setup = ast.fix_missing_locations(ast.Module(body=setup_nodes, type_ignores=[]))
+    one_loop = ast.fix_missing_locations(ast.Module(body=loop.body, type_ignores=[]))
+    imported = {part.name for stmt in tree.body if isinstance(stmt, ast.ImportFrom)
+                for part in stmt.names}
+    return compile(setup, SOURCE_NAME, 'exec'), compile(one_loop, SOURCE_NAME, 'exec'), loop, imported
+
+
+def initial_sleep_period(loop):
+    for node in reversed(loop.body):
+        if (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Name) and node.value.func.id == 'sleep'
+            and len(node.value.args) == 1 and isinstance(node.value.args[0], ast.Constant)
+            and isinstance(node.value.args[0].value, (float, int))):
+            dt = float(node.value.args[0].value)
+            if MIN_DT <= dt <= MAX_DT:
+                return dt
+    return DEFAULT_DT
+
+
+def clean_number(value):
+    try:
+        n = float(value)
+        return n if math.isfinite(n) else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def error_info(error, source):
+    etype = type(error).__name__
+    line = getattr(error, 'lab_line', None)
+    col = None
+    if isinstance(error, SyntaxError):
+        line = getattr(error, 'lineno', None) or line
+        col = getattr(error, 'offset', None)
+        message = getattr(error, 'msg', str(error))
+    else:
+        frames = traceback.extract_tb(error.__traceback__)
+        code_frame = next((f for f in reversed(frames) if f.filename == SOURCE_NAME), None)
+        if code_frame:
+            line = code_frame.lineno
+            # Python tracebacks report columns zero-based.
+            if code_frame.colno is not None:
+                col = code_frame.colno + 1
+        message = str(error)
+    lines = source.splitlines()
+    code = lines[line - 1] if isinstance(line, int) and 1 <= line <= len(lines) else None
+    hints = {
+        'NameError': 'Check variable spelling and initialization. The simulator does not supply timeChange; calculate it yourself with ticks_us() and ticks_diff().',
+        'IndentationError': 'Check indentation. Statements inside while True: need four spaces.',
+        'SyntaxError': 'Check punctuation, parentheses, and colons after while and if.',
+        'ZeroDivisionError': 'Check the denominator of the calculation; it must not be zero.',
+        'TypeError': 'Check that you are performing arithmetic on numeric values.',
+    }
+    return {'type': etype, 'message': message, 'line': line,
+            'column': col, 'code': code, 'hint': hints.get(etype)}
+
+
+def reset_sim(source):
+    global ACTIVE, VIRTUAL_CLOCK_US
+    ACTIVE = None
+    VIRTUAL_CLOCK_US = 0
+    setup_code, loop_code, loop_node, imported = compile_program(source)
+    scope = {'__builtins__': dict(ALLOWED_BI, print=quiet_print)}
+    time_functions = {'sleep': virtual_sleep,
+                      'ticks_us': virtual_ticks_us,
+                      'ticks_diff': virtual_ticks_diff}
+    # Emulate actual imports, rather than silently making time functions builtins.
+    scope.update({name: time_functions[name] for name in imported})
+    exec(setup_code, scope, scope)
+    dt = initial_sleep_period(loop_node)
+    # Prime one nominal period so the first measured dt is nonzero. This is a
+    # simulator-only startup convention (not an actual MicroPython timing rule).
+    VIRTUAL_CLOCK_US = int(round(dt * 1000000)) % CLOCK_PERIOD_US
+    command_lines = [node.lineno for node in ast.walk(loop_node)
+                     if isinstance(node, ast.Assign)
+                     and any(isinstance(t, ast.Name) and t.id == 'motor_command'
+                             for t in node.targets)]
+    ACTIVE = dict(scope=scope, loop=loop_code, source=source,
+                  loop_line=loop_node.lineno,
+                  command_line=min(command_lines, default=loop_node.lineno),
+                  state=[0., 0., 0.],
+                  t=0., dt=dt, slept=False, next_dt=dt)
+    return {'dt': dt, 'gains': [clean_number(scope.get(n)) for n in ('Kp', 'Ki', 'Kd')]}
+
+
+def safe_reset(source):
+    try:
+        return {'ok': True, 'data': reset_sim(source)}
+    except Exception as exc:
+        return {'ok': False, 'error': error_info(exc, source)}
+
+
+def drone_derivative(state, applied_command):
+    altitude, upward_velocity, actual_motor_speed = state
+    lift_accel = G_FT * (actual_motor_speed / TRUE_HOVER_RPM) ** 2
+    acceleration = lift_accel - G_FT - VERTICAL_DRAG * upward_velocity
+    motor_rate = (applied_command - actual_motor_speed) / MOTOR_TIME_CONSTANT
+    return [upward_velocity, acceleration, motor_rate]
+
+
+def integrate_drone(state, applied_command, dt):
+    # Substep RK4 for stable integration even if sleep() is increased to 0.3/1 s.
+    slices = max(1, math.ceil(dt / INTEGRATION_STEP))
+    h = dt / slices
+    for _ in range(slices):
+        k1 = drone_derivative(state, applied_command)
+        s2 = [x + .5*h*k for x,k in zip(state,k1)]
+        k2 = drone_derivative(s2, applied_command)
+        s3 = [x + .5*h*k for x,k in zip(state,k2)]
+        k3 = drone_derivative(s3, applied_command)
+        s4 = [x + h*k for x,k in zip(state,k3)]
+        k4 = drone_derivative(s4, applied_command)
+        state = [x + h/6*(a+2*b+2*c+d)
+                 for x,a,b,c,d in zip(state,k1,k2,k3,k4)]
+        # Ground prevents negative altitude and penetration of the landing surface.
+        if state[0] < 0.:
+            state[0] = 0.
+            if state[1] < 0.:
+                state[1] = 0.
+        state[2] = max(0., min(MAX_RPM_PERCENT, state[2]))
+    return state
+
+
+def fail_on_loop(message):
+    error = RuntimeError(message)
+    error.lab_line = ACTIVE['loop_line']
+    raise error
+
+
+def run_steps(count, new_target):
+    global VIRTUAL_CLOCK_US
+    if ACTIVE is None:
+        return {'samples': [], 'dt': DEFAULT_DT,
+                'error': {'type': 'RuntimeError', 'line': None,
+                          'message': 'Start a new simulation first', 'code': None}}
+    samples = []
+    try:
+        count = max(0, min(int(count), MAX_STEPS_PER_REQUEST))
+        target = float(new_target)
+        if not math.isfinite(target):
+            raise ValueError('Setpoint must be a finite number')
+        target = max(0., min(15., target))
+        for _ in range(count):
+            scope = ACTIVE['scope']
+            scope['desired_altitude'] = target
+            scope['current_altitude'] = ACTIVE['state'][0]
+            # timeChange is intentionally NOT provided: students calculate it.
+            ACTIVE['slept'] = False
+            scope.pop('motor_command', None)
+            exec(ACTIVE['loop'], scope, scope)
+            if not ACTIVE['slept']:
+                fail_on_loop('Your while True: loop must call sleep(...) once each iteration')
+            if 'motor_command' not in scope:
+                fail_on_loop('Your while True: loop must calculate motor_command before sleep()')
+            requested = clean_number(scope['motor_command'])
+            if requested is None or abs(requested) > 1e5:
+                fail_on_loop('motor_command must be a finite number (percent of maximum RPM)')
+            # The simulated motor driver refuses out-of-range commands so that
+            # students must implement their own Python if-statements.
+            if not 0. <= requested <= MAX_RPM_PERCENT:
+                problem = ValueError(
+                    f'motor_command = {requested:.1f}% is outside the 0-100% range. '
+                    'Use if statements to limit motor_command before sleep().'
+                )
+                problem.lab_line = ACTIVE['command_line']
+                raise problem
+            # Retain a physical failsafe even though accepted commands are valid.
+            applied = min(MAX_RPM_PERCENT, max(0., requested))
+            dt = ACTIVE['next_dt']
+            ACTIVE['state'] = integrate_drone(ACTIVE['state'], applied, dt)
+            ACTIVE['t'] += dt
+            ACTIVE['dt'] = dt
+            # Only virtual sleep advances the Pico timer, not animation speed.
+            VIRTUAL_CLOCK_US = (VIRTUAL_CLOCK_US + int(round(dt * 1000000))) % CLOCK_PERIOD_US
+            y,v,rpm = ACTIVE['state']
+            if not all(math.isfinite(a) for a in ACTIVE['state']):
+                raise ValueError('Numerical solution became non-finite')
+            samples.append([
+                round(ACTIVE['t'],6), round(y,7), target, round(requested,6),
+                clean_number(scope.get('error')),
+                clean_number(scope.get('P_output')),
+                clean_number(scope.get('I_output')),
+                clean_number(scope.get('D_output')),
+                round(applied,6), round(rpm,6), round(v,6),
+                clean_number(scope.get('timeChange')),
+            ])
+            if y > 500.:
+                return {'samples': samples, 'dt': dt,
+                        'warning': 'Drone rose above 500 ft. The controller appears unstable; run ended for safety.'}
+        return {'samples': samples, 'dt': ACTIVE['dt'], 'warning': None}
+    except Exception as exc:
+        return {'samples': samples, 'dt': ACTIVE['dt'],
+                'error': error_info(exc, ACTIVE['source'])}
+</script>
+<script>
+(() => {
+  'use strict';
+  const BASE = 'https://cdn.jsdelivr.net/pyodide/v0.28.3/full/';
+  const MODE = 'student';
+  const WINDOW_SECONDS = 30;
+  const DEFAULT_CODE = "# put code here";
+  const COLORS = ['#1689bd','#e07846','#8d71bf','#2eaa7c','#d05f9b','#b0a24a','#357a8e','#ad6357'];
+  const $ = id => document.getElementById(id);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const finite = v => typeof v === 'number' && Number.isFinite(v);
+  const fmt = (v, n=2) => finite(v) ? v.toFixed(n) : '—';
+  const codeEditor = $('python-code');
+  const start = $('start'), pause = $('pause'), stop = $('stop'), clear = $('clear');
+  const setpoint = $('setpoint'), scrub = $('scrub'), status = $('status');
+  const chart = $('response-chart'), ctx = chart.getContext('2d');
+  const tip = $('hover-tip'), legend = $('legend');
+  const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+  const storageName = 'engineering401.pid-drone.'+MODE+'.v6';
+  let worker = null, ready = false, pending = false, playing = false, paused = false, stopRequested = false;
+  let trials = [], latest = null, runCounter = 0, previewIndex = null;
+  let frameLast = null, timeBucket = 0, hover = null;
+  let canvasW = 0, canvasH = 0, runtimeError = false, loopDt = 0.03;
+  let errorLine = null;
+
+  function setStatus(message, kind='') {
+    status.textContent = message;
+    status.className = 'status ' + kind;
+  }
+  function renderLineNumbers() {
+    const lines = codeEditor.value.split('\n');
+    const block = $('gutter-lines');
+    const frag = document.createDocumentFragment();
+    for (let i = 1; i <= lines.length; i++) {
+      const span = document.createElement('span');
+      span.className = 'line-number'+(i === errorLine ? ' error-line' : '');
+      span.textContent = String(i);
+      frag.append(span);
+    }
+    block.replaceChildren(frag);
+    syncGutterScroll();
+  }
+  function syncGutterScroll() {
+    $('gutter-lines').style.transform = 'translateY(' + (-codeEditor.scrollTop) + 'px)';
+  }
+  function jumpToLine(number) {
+    const n = Math.max(1,Math.min(Number(number)||1,codeEditor.value.split('\n').length));
+    const lines = codeEditor.value.split('\n');
+    let pos=0;
+    for (let i=0;i<n-1;i++)pos+=lines[i].length+1;
+    codeEditor.focus();
+    codeEditor.setSelectionRange(pos,pos+lines[n-1].length);
+    codeEditor.scrollTop=Math.max(0,(n-1)*18-codeEditor.clientHeight*.32);
+    syncGutterScroll();
+  }
+  function clearCodeError() {
+    const node = $('code-error');
+    node.hidden = true; node.replaceChildren();
+    errorLine = null; renderLineNumbers();
+  }
+  function showCodeError(problem) {
+    const data = typeof problem === 'string'
+      ? {type:'Error',message:problem}
+      : (problem || {type:'Error',message:'Unknown error'});
+    const node = $('code-error');
+    node.hidden = false; node.replaceChildren();
+    errorLine = Number.isInteger(data.line) && data.line > 0 ? data.line : null;
+    const title = document.createElement('div'); title.className='code-error-title';
+    title.textContent = String(data.type||'Python error')+(errorLine ? ' · Line '+errorLine : '');
+    const msg = document.createElement('div');msg.className='code-error-msg';
+    msg.textContent = String(data.message||'Unknown Python error');
+    node.append(title,msg);
+    if(data.code!==undefined && data.code!==null){
+      const src=document.createElement('pre');src.className='code-error-source';
+      const num=errorLine ? String(errorLine)+' | ' : '';
+      let shown=num+data.code;
+      if(Number.isInteger(data.column) && data.column>0){
+        shown+='\n'+' '.repeat(Math.max(0,num.length+data.column-1))+'^';
+      }
+      src.textContent=shown;node.append(src);
+    }
+    if(data.hint){
+      const hint=document.createElement('div');hint.className='code-error-hint';
+      hint.textContent='Tip: '+data.hint;node.append(hint);
+    }
+    if(errorLine){
+      const btn=document.createElement('button');btn.type='button';btn.className='jump-error';
+      btn.textContent='Jump to line '+errorLine;
+      btn.addEventListener('click',()=>jumpToLine(errorLine));node.append(btn);
+    }
+    renderLineNumbers();
+  }
+  function setButtons() {
+    start.disabled = !ready || pending || playing;
+    pause.disabled = !playing;
+    stop.disabled = !playing;
+    pause.textContent = paused ? 'Resume' : 'Pause';
+    clear.disabled = playing || pending;
+    scrub.disabled = playing || !latest || latest.samples.length === 0;
+    $('download-csv').disabled = !latest || latest.samples.length === 0;
+    $('save-chart').disabled = !latest || latest.samples.length === 0;
+    $('scrub-help').textContent = scrub.disabled
+      ? 'Select STOP to examine the latest trace.'
+      : 'Drag or scroll to view any previously recorded time.';
+  }
+  function persist() {
+    try { localStorage.setItem(storageName, JSON.stringify({code:codeEditor.value})); } catch (_) {}
+  }
+  function restore() {
+    codeEditor.value = DEFAULT_CODE;
+    try {
+      const current = JSON.parse(localStorage.getItem(storageName) || 'null');
+      if (current && typeof current.code === 'string') { codeEditor.value = current.code; return; }
+      // v5 adds a virtual Pico microsecond clock; older code stays in prior versions.
+    } catch (_) {}
+  }
+  function resetCode() {
+    if (playing && !confirm('Reset the code editor? The current run will continue with its original program.')) return;
+    if (!confirm('Replace your Python program with the original '+MODE+' template?')) return;
+    codeEditor.value = DEFAULT_CODE;
+    persist(); clearCodeError(); renderLineNumbers();
+    setStatus(ready ? 'Code restored. Start a new run to test it.' : 'Code restored. Loading Python…', ready ? 'ready' : '');
+  }
+  function downloadBlob(blob, name) {
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download=name; document.body.append(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }
+  function downloadCode() {
+    downloadBlob(new Blob([codeEditor.value+'\n'],{type:'text/x-python;charset=utf-8'}),'PID_Drone_Lab_Code.py');
+  }
+  function downloadCSV() {
+    if (!latest?.samples.length) return;
+    const lines=['time_s,altitude_ft,setpoint_ft,motor_command_requested_percent,error_ft,P_output,I_output,D_output,motor_command_limited_percent,actual_rotor_speed_percent,vertical_velocity_ft_s,python_timeChange_s'];
+    for (const row of latest.samples) lines.push(row.map(v=>v===null?'':v).join(','));
+    downloadBlob(new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),'PID_Drone_Trial_'+latest.id+'.csv');
+  }
+  function buildWorker() {
+    const source = `
+      const BASE=${JSON.stringify(BASE)};
+      let pyodide=null;
+      self.onmessage=async(event)=>{
+        const m=event.data;
+        try {
+          if(m.type==='init'){
+            importScripts(BASE+'pyodide.js');
+            pyodide=await loadPyodide({indexURL:BASE});
+            pyodide.runPython(m.engine);
+            self.postMessage({type:'ready'});
+          } else if(m.type==='reset') {
+            if(!pyodide)throw new Error('Python has not finished loading');
+            pyodide.globals.set('PROGRAM_SOURCE',m.program);
+            const result=JSON.parse(pyodide.runPython('json.dumps(safe_reset(PROGRAM_SOURCE))'));
+            self.postMessage({type:'reset-ok',result});
+          } else if(m.type==='step') {
+            pyodide.globals.set('STEP_COUNT',m.steps);
+            pyodide.globals.set('DESIRED',m.target);
+            const result=JSON.parse(pyodide.runPython('json.dumps(run_steps(STEP_COUNT,DESIRED))'));
+            self.postMessage({type:'step-ok',result});
+          }
+        } catch(err){self.postMessage({type:'failure',stage:m.type,detail:String(err&&err.message||err)});}
+      };
+    `;
+    const url = URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+    worker = new Worker(url); URL.revokeObjectURL(url);
+    worker.onmessage = e => onWorkerMessage(e.data);
+    worker.onerror = e => {
+      runtimeError = true; ready = false; playing = false; pending = false;
+      setStatus('Unable to load Python. Check internet access and school CDN filters.','error');
+      showCodeError(String(e.message || 'Python runtime worker error'));
+      setButtons();
+    };
+    worker.postMessage({type:'init',engine:$('python-engine').textContent});
+  }
+  function errorDisplay(stage, detail) {
+    const raw=String(detail);
+    const strings=raw.split('\n').map(s=>s.trim()).filter(Boolean);
+    showCodeError({type:stage==='init'?'Python runtime error':'Python execution error',
+      message:strings.slice(-2).join(' — ')||raw});
+    setStatus('Error — see details beneath the editor.','error');
+    playing=false;paused=false;pending=false;stopRequested=false;
+    setButtons();drawChart();
+  }
+  function onWorkerMessage(data) {
+    if (data.type==='ready') {
+      ready=true;
+      setStatus('Python ready. Press Start new run.','ready');
+      setButtons();
+    } else if (data.type==='reset-ok') {
+      if(!data.result.ok){
+        pending=false;showCodeError(data.result.error);
+        setStatus('Python error — see its type and line number beneath the editor.','error');
+        setButtons();return;
+      }
+      const reset=data.result.data;
+      pending=false; playing=true; paused=false; timeBucket=loopDt=Number(reset.dt)||0.03; frameLast=null;
+      latest={id:++runCounter,color:COLORS[(runCounter-1)%COLORS.length],samples:[],gains:reset.gains,complete:false};
+      trials.push(latest); previewIndex=null; drawLegend();
+      clearCodeError();
+      setStatus('Run '+latest.id+' is running continuously. Change the setpoint or press STOP.','running');
+      showValues(null,0,Number(setpoint.value));
+      setButtons(); drawChart();
+    } else if (data.type==='step-ok') {
+      pending=false;
+      if (!latest) return;
+      const lastTime=latest.samples.at(-1)?.[0]||0;
+      if (data.result.samples?.length) latest.samples.push(...data.result.samples);
+      const recent=latest.samples.at(-1);
+      if (recent) showValues(recent);
+      const consumed=(recent?.[0]||0)-lastTime;
+      timeBucket=clamp(timeBucket-consumed,-1.05,2.5);
+      loopDt=Number(data.result.dt)||0.03;
+      if (stopRequested) {
+        finish('stopped');
+      } else if (data.result.error) {
+        showCodeError(data.result.error);
+        finish('error');
+      } else if (data.result.warning) {
+        showCodeError({type:'Flight limit',message:data.result.warning});
+        finish('error');
+      }
+      drawChart(); setButtons();
+    } else if (data.type==='failure') errorDisplay(data.stage,data.detail);
+  }
+  function newRun() {
+    if (!ready || pending || playing) return;
+    pending=true; paused=false; stopRequested=false; previewIndex=null; timeBucket=0; frameLast=null;
+    clearCodeError();
+    setStatus('Checking Python program and starting simulation…');
+    scrub.value='0'; $('scrub-value').textContent='0.00 s';
+    worker.postMessage({type:'reset',program:codeEditor.value});
+    setButtons();
+  }
+  function finish(kind) {
+    playing=false; paused=false; pending=false; stopRequested=false;
+    if(latest) latest.complete=kind==='stopped';
+    if(latest?.samples.length) {
+      previewIndex=latest.samples.length-1;
+      const r=latest.samples[previewIndex];
+      scrub.max=String(r[0]); scrub.value=String(r[0]);
+      $('scrub-value').textContent=fmt(r[0])+' s';
+      $('last-scrub-label').textContent=fmt(r[0])+' s';
+      showValues(r);
+    }
+    if(kind==='error')setStatus('Run ended because of a Python or simulation error.','error');
+    else setStatus('Run '+latest.id+' stopped at '+fmt(latest.samples.at(-1)?.[0]||0)+' s. Scrub or start a new run.','ready');
+    setButtons();drawChart();
+  }
+  function clearTrials() {
+    if(playing||pending)return;
+    trials=[];latest=null;runCounter=0;previewIndex=null;timeBucket=0;
+    scrub.max='0';scrub.value='0';$('scrub-value').textContent='0.00 s';$('last-scrub-label').textContent='0 s';
+    showValues(null,0,Number(setpoint.value));drawLegend();drawChart();clearCodeError();
+    setStatus(ready?'Trials cleared. Your Python program is unchanged.':'Loading Python…',ready?'ready':'');setButtons();
+  }
+  function frame(timestamp) {
+    if(frameLast===null)frameLast=timestamp;
+    const elapsed=clamp((timestamp-frameLast)/1000,0,.10);frameLast=timestamp;
+    if(playing&&!paused&&!stopRequested) {
+      timeBucket=Math.min(2.5,timeBucket+elapsed*Number($('speed').value));
+      if(!pending && timeBucket + 1e-8 >= loopDt) {
+        const count=clamp(Math.floor((timeBucket+1e-8)/loopDt),1,70);
+        pending=true;
+        worker.postMessage({type:'step',steps:count,target:Number(setpoint.value)});
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  function updateTargetGraphic(desired) {
+    const targetY=366-clamp(desired,0,15)*22;
+    $('target-line').setAttribute('transform','translate(0 '+(targetY-146).toFixed(2)+')');
+    $('target-label').textContent='Target '+fmt(desired,1)+' ft';
+  }
+  function showValues(row,time=0,target=10) {
+    const r=row||[time,0,target,null,null,null,null,null];
+    const y=r[1];
+    // Do not clamp the drone's altitude: above 15 ft it leaves the fixed 0–15 ft view.
+    const svgY=366-y*22;
+    $('drone').setAttribute('transform','translate(148 '+svgY.toFixed(2)+')');
+    updateTargetGraphic(playing?Number(setpoint.value):r[2]);
+    $('alt-value').innerHTML=fmt(y)+' <small>ft</small>';
+    $('time-value').innerHTML=fmt(r[0])+' <small>s</small>';
+    $('error-value').textContent=fmt(r[4]);
+    $('output-value').textContent=finite(r[3]) ? fmt(r[3],1)+' %' : '—';
+    $('velocity-value').textContent=finite(r[10]) ? fmt(r[10],2)+' ft/s' : '—';
+    $('p-value').textContent=fmt(r[5]);
+    $('i-value').textContent=fmt(r[6]);
+    $('d-value').textContent=fmt(r[7]);
+  }
+  function selectSetpoint() {
+    const target=Number(setpoint.value);
+    $('setpoint-display').textContent=target.toFixed(1)+' ft';
+    updateTargetGraphic(target);
+    if(!latest?.samples.length)showValues(null,0,target);
+    drawChart();
+  }
+  function drawLegend() {
+    legend.replaceChildren();
+    const mk=(color,name,dash=false)=>{
+      const span=document.createElement('span'),i=document.createElement('i');
+      i.style.borderColor=color;if(dash)i.style.borderTopStyle='dashed';
+      span.append(i,document.createTextNode(name));return span;
+    };
+    legend.append(mk('#8e7480','Setpoint (latest run)',true));
+    // Keep the legend compact even after many unlimited-duration trials.
+    trials.slice(-8).forEach(tr=>{
+      const g=tr.gains||[];
+      legend.append(mk(tr.color,'Trial '+tr.id+' (Kp '+fmt(g[0],1)+', Ki '+fmt(g[1],1)+', Kd '+fmt(g[2],1)+')'));
+    });
+  }
+  function lowerBound(rows,t) {
+    let low=0,high=rows.length;
+    while(low<high){const m=(low+high)>>1;if(rows[m][0]<t)low=m+1;else high=m;}
+    return low;
+  }
+  function recordNear(rows,t) {
+    if(!rows?.length)return -1;
+    const i=lowerBound(rows,t);
+    if(i===0)return 0;
+    if(i===rows.length)return rows.length-1;
+    return Math.abs(rows[i][0]-t)<Math.abs(rows[i-1][0]-t)?i:i-1;
+  }
+  function chartWindow() {
+    const records=latest?.samples;
+    if(!records?.length)return {from:0,to:WINDOW_SECONDS};
+    const selected=previewIndex!==null?records[previewIndex]?.[0]:null;
+    const anchor=playing?records.at(-1)[0]:selected??records.at(-1)[0];
+    const from=Math.max(0,anchor-WINDOW_SECONDS);
+    return {from,to:from+WINDOW_SECONDS};
+  }
+  function geometry(w=canvasW,h=canvasH) {
+    const plot={x:54,y:15,w:Math.max(20,w-70),h:Math.max(20,h-65)};
+    const window=chartWindow();let yMin=-1,yMax=16;
+    if(latest?.samples.length) {
+      const rows=latest.samples;
+      const first=Math.max(0,lowerBound(rows,window.from)-1);
+      for(let i=first;i<rows.length && rows[i][0]<=window.to;i++) {
+        const a=rows[i][1];if(!finite(a))continue;
+        yMin=Math.min(yMin,a-1);yMax=Math.max(yMax,a+1);
+      }
+    }
+    const mapX=t=>plot.x+(t-window.from)/WINDOW_SECONDS*plot.w;
+    const mapY=y=>plot.y+(1-(y-yMin)/(yMax-yMin))*plot.h;
+    return {...window,plot,yMin,yMax,mapX,mapY};
+  }
+  function drawChart(targetCtx=ctx,w=canvasW,h=canvasH,showHover=true) {
+    if(!w||!h)return;
+    const c=targetCtx,geo=geometry(w,h),{plot,from,to,yMin,yMax,mapX,mapY}=geo;
+    c.clearRect(0,0,w,h);c.fillStyle='#fff';c.fillRect(0,0,w,h);
+    c.font='11px system-ui,sans-serif';c.textBaseline='middle';c.lineWidth=1;
+    const interval=(yMax-yMin)>45?20:(yMax-yMin)>25?10:5;
+    for(let i=Math.ceil(yMin/interval)*interval;i<=yMax;i+=interval) {
+      const yy=mapY(i);c.strokeStyle='#e9eff5';c.beginPath();c.moveTo(plot.x,yy);c.lineTo(plot.x+plot.w,yy);c.stroke();
+      c.fillStyle='#708397';c.textAlign='right';c.fillText(String(i),plot.x-8,yy);
+    }
+    for(let t=Math.ceil((from-1e-8)/5)*5;t<=to+1e-8;t+=5) {
+      const xx=mapX(t);c.strokeStyle='#eff3f7';c.beginPath();c.moveTo(xx,plot.y);c.lineTo(xx,plot.y+plot.h);c.stroke();
+      c.fillStyle='#708397';c.textAlign='center';c.fillText(String(Math.round(t)),xx,plot.y+plot.h+16);
+    }
+    c.strokeStyle='#afc0ce';c.lineWidth=1.3;c.beginPath();c.moveTo(plot.x,plot.y);c.lineTo(plot.x,plot.y+plot.h);c.lineTo(plot.x+plot.w,plot.y+plot.h);c.stroke();
+    c.save();c.fillStyle='#556b7f';c.font='12px system-ui,sans-serif';c.textAlign='center';
+    c.fillText('Time [s]',plot.x+plot.w/2,h-11);
+    c.translate(13,plot.y+plot.h/2);c.rotate(-Math.PI/2);c.fillText('Altitude [ft]',0,0);c.restore();
+    c.save();c.beginPath();c.rect(plot.x,plot.y,plot.w,plot.h);c.clip();
+    // Stepwise setpoint, including when its changes occurred before the visible window.
+    if(latest?.samples.length) {
+      const rows=latest.samples;
+      const idx=lowerBound(rows,from);
+      let previous=rows[Math.max(0,idx-1)][2];
+      c.beginPath();c.strokeStyle='#8e7480';c.lineWidth=2;c.setLineDash([7,5]);
+      c.moveTo(mapX(from),mapY(previous));
+      for(let i=idx;i<rows.length && rows[i][0]<=to;i++){
+        const r=rows[i];if(r[2]!==previous){c.lineTo(mapX(r[0]),mapY(previous));c.lineTo(mapX(r[0]),mapY(r[2]));previous=r[2];}
+      }
+      c.lineTo(mapX(to),mapY(previous));c.stroke();c.setLineDash([]);
+    } else {
+      c.strokeStyle='#8e7480';c.lineWidth=2;c.setLineDash([7,5]);c.beginPath();
+      c.moveTo(mapX(from),mapY(Number(setpoint.value)));c.lineTo(mapX(to),mapY(Number(setpoint.value)));
+      c.stroke();c.setLineDash([]);
+    }
+    for(const tr of trials) {
+      const rows=tr.samples;if(!rows.length)continue;
+      const idx=lowerBound(rows,from);
+      if(idx>=rows.length && rows.at(-1)[0]<from)continue;
+      c.lineWidth=tr===latest?2.7:2;c.strokeStyle=tr.color;c.lineJoin='round';c.beginPath();
+      if(from===0)c.moveTo(mapX(0),mapY(0));
+      else if(idx>0)c.moveTo(mapX(from),mapY(rows[idx-1][1]));
+      else c.moveTo(mapX(rows[0][0]),mapY(rows[0][1]));
+      for(let i=idx;i<rows.length && rows[i][0]<=to;i++)c.lineTo(mapX(rows[i][0]),mapY(rows[i][1]));
+      c.stroke();
+    }
+    if(latest && previewIndex!==null) {
+      const r=latest.samples[previewIndex];
+      if(r && r[0]>=from && r[0]<=to) {
+        c.fillStyle='white';c.strokeStyle='#173f5c';c.lineWidth=2;c.beginPath();
+        c.arc(mapX(r[0]),mapY(r[1]),5,0,Math.PI*2);c.fill();c.stroke();
+      }
+    }
+    if(showHover && hover && latest?.samples.length) {
+      const row=nearestRecord(hover.x,geo);
+      if(row){
+        c.strokeStyle='#7e9aad';c.setLineDash([4,4]);c.lineWidth=1;c.beginPath();
+        c.moveTo(mapX(row[0]),plot.y);c.lineTo(mapX(row[0]),plot.y+plot.h);c.stroke();c.setLineDash([]);
+        c.beginPath();c.arc(mapX(row[0]),mapY(row[1]),4.6,0,Math.PI*2);c.fillStyle='white';c.fill();c.strokeStyle=latest.color;c.lineWidth=2;c.stroke();
+        tip.hidden=false;
+        tip.textContent='Trial '+latest.id+' | '+fmt(row[0])+' s | Altitude '+fmt(row[1])+' ft | Setpoint '+fmt(row[2],1)+' ft | Output '+fmt(row[3]);
+        tip.style.left=clamp(hover.x+12,5,Math.max(5,canvasW-250))+'px';
+        tip.style.top=clamp(hover.y+10,5,Math.max(5,canvasH-75))+'px';
+      } else tip.hidden=true;
+    } else tip.hidden=true;
+    c.restore();
+    if(targetCtx===ctx)$('visible-time').textContent='Viewing '+fmt(from,1)+'–'+fmt(to,1)+' s (30-second scrolling window)';
+  }
+  function nearestRecord(x,geo=geometry()) {
+    if(!latest?.samples.length)return null;
+    const time=geo.from+(x-geo.plot.x)/geo.plot.w*WINDOW_SECONDS;
+    if(time<0||time>latest.samples.at(-1)[0]+loopDt)return null;
+    const idx=recordNear(latest.samples,time);
+    return idx<0?null:latest.samples[idx];
+  }
+  function resizeChart() {
+    const rect=chart.getBoundingClientRect();canvasW=rect.width;canvasH=rect.height;
+    chart.width=Math.max(1,Math.round(canvasW*pixelRatio));
+    chart.height=Math.max(1,Math.round(canvasH*pixelRatio));
+    ctx.setTransform(pixelRatio,0,0,pixelRatio,0,0);drawChart();
+  }
+  function onScrub() {
+    if(playing||!latest?.samples.length)return;
+    const idx=recordNear(latest.samples,Number(scrub.value));
+    if(idx<0)return;
+    previewIndex=idx;const row=latest.samples[idx];
+    showValues(row);$('scrub-value').textContent=fmt(row[0])+' s';drawChart();
+  }
+  function saveChart() {
+    if(!latest?.samples.length)return;
+    const w=1100,h=592,scale=2,bitmap=document.createElement('canvas');
+    bitmap.width=w*scale;bitmap.height=h*scale;
+    const ec=bitmap.getContext('2d');ec.scale(scale,scale);
+    ec.fillStyle='white';ec.fillRect(0,0,w,h);
+    ec.font='bold 22px system-ui,sans-serif';ec.fillStyle='#1b2d3f';
+    ec.fillText('Drone PID Coding Simulator – Altitude Response',28,38);
+    const bounds=chartWindow();
+    ec.font='12px system-ui,sans-serif';ec.fillStyle='#677c8c';
+    ec.fillText('30 ms default loop | Gravity + thrust + motor lag | Visible time: '+fmt(bounds.from,1)+' to '+fmt(bounds.to,1)+' s',28,60);
+    ec.save();ec.translate(28,72);drawChart(ec,w-56,430,false);ec.restore();
+    ec.font='12px system-ui,sans-serif';
+    const tail=trials.slice(-6);
+    tail.forEach((tr,i)=>{
+      ec.fillStyle=tr.color;ec.fillRect(28+(i%2)*525,524+Math.floor(i/2)*18,14,3);
+      ec.fillStyle='#354d60';
+      ec.fillText('Trial '+tr.id+' Kp '+fmt(tr.gains?.[0],1)+' Ki '+fmt(tr.gains?.[1],1)+' Kd '+fmt(tr.gains?.[2],1),50+(i%2)*525,529+Math.floor(i/2)*18);
+    });
+    bitmap.toBlob(blob=>{if(blob)downloadBlob(blob,'PID_Drone_Altitude_Response.png');},'image/png');
+    drawChart();
+  }
+  function setupInteraction() {
+    restore();
+    codeEditor.addEventListener('input',()=>{persist();renderLineNumbers();});
+    codeEditor.addEventListener('scroll',syncGutterScroll);
+    renderLineNumbers();
+    codeEditor.addEventListener('keydown',e=>{
+      if(e.key==='Tab'){
+        e.preventDefault();const from=codeEditor.selectionStart,to=codeEditor.selectionEnd;
+        codeEditor.setRangeText('    ',from,to,'end');persist();renderLineNumbers();
+      }
+    });
+    $('reset-code').addEventListener('click',resetCode);
+    $('download-python').addEventListener('click',downloadCode);
+    $('download-csv').addEventListener('click',downloadCSV);
+    $('save-chart').addEventListener('click',saveChart);
+    start.addEventListener('click',newRun);
+    stop.addEventListener('click',()=>{
+      if(!playing)return;
+      stopRequested=true;paused=false;
+      if(!pending)finish('stopped');
+      else setStatus('Stopping after the current Python iteration…','ready');
+      setButtons();
+    });
+    pause.addEventListener('click',()=>{
+      if(!playing)return;
+      paused=!paused;timeBucket=0;frameLast=null;
+      setStatus(paused?'Paused at '+fmt(latest.samples.at(-1)?.[0]||0)+' s.':'Run '+latest.id+' resumed.',paused?'ready':'running');
+      setButtons();
+    });
+    clear.addEventListener('click',clearTrials);
+    setpoint.addEventListener('input',selectSetpoint);
+    setpoint.addEventListener('wheel',e=>{
+      e.preventDefault();const change=Math.sign(-e.deltaY)*.5;
+      setpoint.value=String(clamp(Number(setpoint.value)+change,0,15));selectSetpoint();
+    },{passive:false});
+    scrub.addEventListener('input',onScrub);
+    scrub.addEventListener('wheel',e=>{
+      if(scrub.disabled)return;e.preventDefault();
+      scrub.value=String(clamp(Number(scrub.value)+Math.sign(-e.deltaY)*.5,0,Number(scrub.max)));
+      onScrub();
+    },{passive:false});
+    chart.addEventListener('pointermove',e=>{
+      const r=chart.getBoundingClientRect();hover={x:e.clientX-r.left,y:e.clientY-r.top};
+      const {plot}=geometry();
+      if(hover.x<plot.x||hover.x>plot.x+plot.w||hover.y<plot.y||hover.y>plot.y+plot.h)hover=null;
+      drawChart();
+    });
+    chart.addEventListener('pointerleave',()=>{hover=null;tip.hidden=true;drawChart();});
+    const observer=new ResizeObserver(resizeChart);observer.observe(chart);
+    selectSetpoint();drawLegend();resizeChart();setButtons();
+    buildWorker();
+    setTimeout(()=>{
+      if(!ready&&!runtimeError)setStatus('Python is taking longer to load. Check internet access and school CDN filters.','error');
+    },15000);
+    requestAnimationFrame(frame);
+  }
+  setupInteraction();
+})();
+
+</script>
+</body>
+</html>
